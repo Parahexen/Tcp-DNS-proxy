@@ -225,13 +225,13 @@ def transfer(querydata, addr, server, go_abroad=False):
 
     for item in DNS_SERVERS if go_abroad else CN_DNS_SERVERS:
         ip, port = item.split(':')
-        print "using dns server: [%s]" % ip
 
         response = QueryDNS(ip, port, querydata)
         if response is None or not check_dns_packet(response):
             continue
 
         # if dns_answer is infected, we go abroad.
+        print "\tGET:[%s]\t@\tDNS:[%s]" % (socket.inet_ntoa(response[-4:]), ip)
         if check_infection(response):
             transfer(querydata, addr, server, True)
             return
