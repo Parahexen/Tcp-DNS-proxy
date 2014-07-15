@@ -127,7 +127,7 @@ def QueryDNS(server, port, querydata):
 
 
 def private_dns_response(data):
-    ret = None
+    ret = 'non_private'
 
     TID = data[0:2]
     Questions = data[4:6]
@@ -141,11 +141,13 @@ def private_dns_response(data):
     sys.stdout.flush()
 
     if qtype != 0x0001:
-        return None
+        return 'non_a_query', q_domain
 
     if Questions != '\x00\x01' or AnswerRRs != '\x00\x00' or \
         AuthorityRRs != '\x00\x00' or AdditionalRRs != '\x00\x00':
-            return None
+            return 'bad_query', q_domain
+
+    if not cfg['enable_private']: return ret, q_domain
 
     items = cfg['private_host'].items()
 
@@ -165,7 +167,7 @@ def private_dns_response(data):
             ret += '\x00\x04'
             ret +=  socket.inet_aton(ip)
 
-    return ret
+    return ret, q_domain
 
 
 def check_dns_packet(data):
@@ -209,8 +211,10 @@ def transfer(querydata, addr, server, go_abroad=False):
     t_id = querydata[:2]
     key = querydata[2:].encode('hex')
 
-    response = private_dns_response(querydata)
-    if response:
+    (response, q_domain) = private_dns_response(querydata)
+    if response is 'non_a_query': return
+    elif response is 'bad_query': return
+    elif response is not 'non_private':
         server.sendto(response, addr)
         return
 
@@ -223,7 +227,15 @@ def transfer(querydata, addr, server, go_abroad=False):
 
         return
 
-    for item in DNS_SERVERS if go_abroad else CN_DNS_SERVERS:
+    dns_server = CN_DNS_SERVERS
+    if go_abroad:
+        dns_server = DNS_SERVERS
+    else:
+        for domain, ip in cfg['private_host'].items():
+            if fnmatch(q_domain, domain):
+                dns_server = DNS_SERVERS
+
+    for item in dns_server:
         ip, port = item.split(':')
 
         response = QueryDNS(ip, port, querydata)
@@ -231,7 +243,7 @@ def transfer(querydata, addr, server, go_abroad=False):
             continue
 
         # if dns_answer is infected, we go abroad.
-        print "\tGET:[%s]\t@\tDNS:[%s]" % (socket.inet_ntoa(response[-4:]), ip)
+        print "\tGET:[%15s] @ DNS:[%15s]" % (socket.inet_ntoa(response[-4:]), ip)
         if check_infection(response):
             transfer(querydata, addr, server, True)
             return
@@ -248,7 +260,7 @@ def transfer(querydata, addr, server, go_abroad=False):
         break
 
     if response is None:
-        print "[ERROR] Tried many times and failed to resolve %s" % domain
+        print "[ERROR] Tried many times and failed to resolve %s" % q_domain
 
 
 class ThreadedUDPServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
