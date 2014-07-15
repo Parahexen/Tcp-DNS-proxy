@@ -17,8 +17,8 @@
     "daemon_process":   false,
     "private_host":     {"*google.com": "203.117.34.162"},
     
-    "cn_dns_server":    ["1.2.4.8",
-                        "210.2.4.8"],
+    "cn_dns_server":    ["1.2.4.8:53",
+                        "210.2.4.8:53"],
     "infected_ip":      ["37.61.54.158",
                         "59.24.3.173"]
 }

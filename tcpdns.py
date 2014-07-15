@@ -51,6 +51,8 @@ from pylru import lrucache
 cfg = {}
 LRUCACHE = None
 DNS_SERVERS = None
+CN_DNS_SERVERS = None
+INFECTED_IP_ADDRESSES = None
 
 def hexdump(src, width=16):
     """ hexdump, default width 16
@@ -180,7 +182,15 @@ def check_dns_packet(data):
     return Reply_code == 0
 
 
-def transfer(querydata, addr, server):
+# check if dns answer is infected
+def check_infection(answer_data):
+    if socket.inet_ntoa(answer_data[-4:]) in INFECTED_IP_ADDRESSES:
+        print "[WARN] It's infected! We are now going abroad."
+        return True
+    return False
+
+
+def transfer(querydata, addr, server, go_abroad=False):
     """send udp dns respones back to client program
 
     Args:
@@ -213,12 +223,18 @@ def transfer(querydata, addr, server):
 
         return
 
-    for item in DNS_SERVERS:
+    for item in DNS_SERVERS if go_abroad else CN_DNS_SERVERS:
         ip, port = item.split(':')
+        print "using dns server: [%s]" % ip
 
         response = QueryDNS(ip, port, querydata)
         if response is None or not check_dns_packet(response):
             continue
+
+        # if dns_answer is infected, we go abroad.
+        if check_infection(response):
+            transfer(querydata, addr, server, True)
+            return
 
         if LRUCACHE is not None:
             LRUCACHE[key] = response
@@ -288,12 +304,17 @@ if __name__ == "__main__":
         DNS_SERVERS = cfg['udp_dns_server']
     else:
         DNS_SERVERS = cfg['tcp_dns_server']
+    
+    CN_DNS_SERVERS = cfg['cn_dns_server']
+    INFECTED_IP_ADDRESSES = cfg['infected_ip']
 
     if cfg['enable_lru_cache']:
         LRUCACHE = lrucache(cfg['lru_cache_size'])
 
     print '>> TCP DNS Proxy, https://github.com/henices/Tcp-DNS-proxy'
     print '>> DNS Servers:\n%s' % ('\n'.join(DNS_SERVERS))
+    print '>> China DNS Servers:\n%s' % ('\n'.join(CN_DNS_SERVERS))
+    print '>> Infected IP Addresses:\n%s' % ('\n'.join(INFECTED_IP_ADDRESSES))
     print '>> Query Timeout: %f' % (cfg['socket_timeout'])
     print '>> Enable Cache: %r' % (cfg['enable_lru_cache'])
     print '>> Now you can set dns server to 127.0.0.1'
