@@ -15,7 +15,8 @@
     "use_gevent":       false,
     "udp_mode":         false,
     "daemon_process":   false,
-    "private_host":     {"*google.com": "203.117.34.162"},
+    "private_host":     {"*google.com": "173.194.117.174",
+                        "*facebook.com": "173.252.110.27"},
     
     "cn_dns_server":    ["1.2.4.8:53",
                         "210.2.4.8:53"],
